@@ -16,6 +16,9 @@ function Slidezy(selector, options = {}) {
       prevButton: null,
       nextButton: null,
       slideBy: 1,
+      autoPlay: false,
+      autoPlayTimeout: 4000,
+      autoPlayHoverPause: true,
     },
     options,
   );
@@ -32,13 +35,41 @@ Slidezy.prototype._init = function () {
   this._createContent();
   this._createTrack();
 
-  if (this.opt.controls) {
+  const showNav = this._getSlideCount() > this.opt.items;
+
+  if (this.opt.controls && showNav) {
     this._createControls();
   }
 
-  if (this.opt.nav) {
+  if (this.opt.nav && showNav) {
     this._createNav();
   }
+
+  if (this.opt.autoPlay) {
+    this._startAutoPlay();
+
+    if (this.opt.autoPlayHoverPause) {
+      this.container.addEventListener("mouseenter", () => this._stopAutoPlay());
+      this.container.addEventListener("mouseleave", () =>
+        this._startAutoPlay(),
+      );
+    }
+  }
+};
+
+Slidezy.prototype._startAutoPlay = function () {
+  if (this.autoPlayTimer) return;
+
+  const slideBy = this._getSlideBy();
+
+  this.autoPlayTimer = setInterval(() => {
+    this.moveSlide(slideBy);
+  }, this.opt.autoPlayTimeout);
+};
+
+Slidezy.prototype._stopAutoPlay = function () {
+  clearInterval(this.autoPlayTimer);
+  this.autoPlayTimer = null;
 };
 
 Slidezy.prototype._createContent = function () {
@@ -71,6 +102,10 @@ Slidezy.prototype._createTrack = function () {
   this.content.appendChild(this.track);
 };
 
+Slidezy.prototype._getSlideBy = function () {
+  return this.opt.slideBy === "page" ? this.opt.items : this.opt.slideBy;
+};
+
 Slidezy.prototype._createControls = function () {
   this.prevBtn = this.opt.prevButton
     ? document.querySelector(this.opt.prevButton)
@@ -98,12 +133,15 @@ Slidezy.prototype._createControls = function () {
   this.nextBtn.onclick = () => this.moveSlide(stepSize);
 };
 
+Slidezy.prototype._getSlideCount = function () {
+  return this.slides.length - (this.opt.loop ? this.opt.items * 2 : 0);
+};
+
 Slidezy.prototype._createNav = function () {
   this.navWrapper = document.createElement("div");
   this.navWrapper.className = "slidezy-nav";
 
-  const slideCount =
-    this.slides.length - (this.opt.loop ? this.opt.items * 2 : 0);
+  const slideCount = this._getSlideCount();
 
   const pageCount = Math.ceil(slideCount / this.opt.items);
 
@@ -136,11 +174,13 @@ Slidezy.prototype.moveSlide = function (step) {
 
   setTimeout(() => {
     if (this.opt.loop) {
-      if (this.currentIndex <= 0) {
-        this.currentIndex = maxIndex - this.opt.items;
+      const slideCount = this._getSlideCount();
+
+      if (this.currentIndex <= this.opt.items) {
+        this.currentIndex += slideCount;
         this._updatePosition(true);
-      } else if (this.currentIndex >= maxIndex) {
-        this.currentIndex = this.opt.items;
+      } else if (this.currentIndex >= slideCount) {
+        this.currentIndex -= slideCount;
         this._updatePosition(true);
       }
     }
